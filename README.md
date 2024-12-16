@@ -1,2 +1,3 @@
-# broker
-get broker info from whole world.
+# Broker News
+
+get broker news from all over the world.
