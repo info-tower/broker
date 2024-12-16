@@ -165,17 +165,27 @@ async function update_feishu_table1() {
   }
 }
 
+export async function feed() {
+  await loginUser();
+  await clearSheet(feedSheetId);
+  await update_feishu_table();
+}
+
+export async function stock_info() {
+  await loginUser();
+  await clearSheet(stockSheetId);
+  await update_feishu_table1();
+}
+
 const args = process.argv.slice(2);
 if (args.length > 0) {
   await loginUser();
   switch (args[0]) {
     case "feed":
-      await clearSheet(feedSheetId);
-      await update_feishu_table();
+      await feed();
       break;
     case "stock_info":
-      await clearSheet(stockSheetId);
-      await update_feishu_table1();
+      await stock_info();
       break;
     default:
       console.log("未知的命令参数");
