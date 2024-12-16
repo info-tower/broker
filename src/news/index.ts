@@ -3,7 +3,7 @@ import yargs from "yargs";
 import { hideBin } from "yargs/helpers";
 import axios from "axios";
 import { writeFile } from "../fs";
-import { upsert } from "../supabase/broker";
+import { upsert } from "../supabase";
 import { get, isEmpty } from "lodash-es";
 
 const feed_news_link = process.env.FEED_NEWS_LINK || "";

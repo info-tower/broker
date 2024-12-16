@@ -10,8 +10,8 @@ export async function loginUser() {
     return;
   }
   const { data, error } = await supabase.auth.signInWithPassword({
-    email: process.env.SUPABASE_EMAIL || "whale_client@longbridge.com",
-    password: process.env.SUPABASE_PASSWORD || "whale_client@longbridge.com+1",
+    email: process.env.SUPABASE_EMAIL || "",
+    password: process.env.SUPABASE_PASSWORD || "",
   });
   if (error) {
     console.error("login failed", error.message);
