@@ -23,6 +23,7 @@ jobs:
           SUPABASE_BROKER_KEY: ${{ secrets.SUPABASE_BROKER_KEY }}
           FEED_NEWS_LINK: ${{ secrets.FEED_NEWS_LINK }}
           FEED_DETAIL_INFO_LINK: ${{ secrets.FEED_DETAIL_INFO_LINK }}
+          FEED_MORE_INFO_LINK: ${{ secrets.FEED_MORE_INFO_LINK }}
           SUPABASE_PASSWORD: ${{ secrets.SUPABASE_PASSWORD }}
           SUPABASE_EMAIL: ${{ secrets.SUPABASE_EMAIL }}
           LARK_APP_SECRET: ${{ secrets.LARK_APP_SECRET }}
