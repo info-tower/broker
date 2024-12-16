@@ -145,7 +145,10 @@ async function getFeedDetail(counter_id: string, id: string, type: string) {
   try {
     const more = await axios({
       method: "GET",
-      url: `${feed_more_info_link}${id}`,
+      url: `${feed_more_info_link
+        .replace("{{id}}", id)
+        .replace("{{type}}", type)
+        .replace("{{t}}", Date.now().toString())}`,
       params,
     });
     const res = await axios({
