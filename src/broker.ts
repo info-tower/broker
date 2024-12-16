@@ -8,6 +8,7 @@ import { upsert } from "./supabase";
 import { feed, stock_info } from "./feishu";
 
 const feed_news_link = process.env.FEED_NEWS_LINK || "";
+const feed_more_info_link = process.env.FEED_MORE_INFO_LINK || "";
 const feed_detail_info_link = process.env.FEED_DETAIL_INFO_LINK || "";
 const isDev = process.env.is_dev === "true";
 
@@ -142,14 +143,20 @@ async function getFeedDetail(counter_id: string, id: string, type: string) {
     _t: Date.now(),
   };
   try {
+    const more = await axios({
+      method: "GET",
+      url: `${feed_more_info_link}${id}`,
+      params,
+    });
     const res = await axios({
       method: "GET",
       url: feed_detail_info_link,
       params,
     });
+    const more_data = get(more, "data.data", {});
     const data = get(res, "data.data", {});
     const feed_detail = {
-      view_count: data.viewCount || 0,
+      view_count: more_data.viewCountShow || 0,
       share_count: data.shareCount || 0,
       like_count: data?.like?.likedNum || 0,
       comment_count: data.commentCount || 0,
