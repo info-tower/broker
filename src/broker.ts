@@ -2,9 +2,10 @@ import puppeteer from "puppeteer";
 import yargs from "yargs";
 import { hideBin } from "yargs/helpers";
 import axios from "axios";
-import { writeFile } from "../fs";
-import { upsert } from "../supabase";
 import { get, isEmpty } from "lodash-es";
+import { writeFile } from "./fs";
+import { upsert } from "./supabase";
+import { feed, stock_info } from "./feishu";
 
 const feed_news_link = process.env.FEED_NEWS_LINK || "";
 const feed_detail_info_link = process.env.FEED_DETAIL_INFO_LINK || "";
@@ -224,5 +225,7 @@ const force = argv.force === "true";
 
 console.log("🚀 ~ counter_ids:", counter_ids);
 if (counter_ids.length > 0) {
-  getDetailInfo(counter_ids);
+  await getDetailInfo(counter_ids);
+  await feed();
+  await stock_info();
 }

@@ -3,7 +3,7 @@ on:
   workflow_dispatch:
     inputs:
       counter_ids:
-        description: "update broker news"
+        description: "update broker news by input ids, e.g. 1,2,3"
         required: false
   repository_dispatch:
     types:
