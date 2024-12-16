@@ -8,8 +8,8 @@
     "@types/yargs": "^17.0.33"
   },
   "scripts": {
-    "news:dev": "is_dev=true bun run src/index.ts",
-    "news": "bun run src/index.ts"
+    "news:dev": "is_dev=true bun run src/broker.ts",
+    "news": "bun run src/broker.ts"
   },
   "peerDependencies": {
     "typescript": "^5.0.0"
