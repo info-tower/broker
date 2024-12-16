@@ -177,22 +177,21 @@ export async function stock_info() {
   await update_feishu_table1();
 }
 
-const args = process.argv.slice(2);
-if (args.length > 0) {
-  await loginUser();
-  switch (args[0]) {
-    case "feed":
-      await feed();
-      break;
-    case "stock_info":
-      await stock_info();
-      break;
-    default:
-      console.log("未知的命令参数");
-      break;
-  }
-} else {
-  console.log(
-    "bun run ./src/broker.ts feed 或 bun run ./src/broker.ts stock_info"
-  );
-}
+// const args = process.argv.slice(2);
+// if (args.length > 0) {
+//   switch (args[0]) {
+//     case "feed":
+//       await feed();
+//       break;
+//     case "stock_info":
+//       await stock_info();
+//       break;
+//     default:
+//       console.log("未知的命令参数");
+//       break;
+//   }
+// } else {
+// console.log(
+//   "bun run ./src/broker.ts feed 或 bun run ./src/broker.ts stock_info"
+// );
+// }
