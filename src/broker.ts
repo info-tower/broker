@@ -8,12 +8,21 @@ import { upsert } from "./supabase";
 import { feed, stock_info, getSheetFistColumnsData } from "./feishu";
 
 const feed_news_link = process.env.FEED_NEWS_LINK || "";
+const feed_news_link_us = process.env.FEED_NEWS_LINK_US || "";
 const feed_more_info_link = process.env.FEED_MORE_INFO_LINK || "";
 const feed_detail_info_link = process.env.FEED_DETAIL_INFO_LINK || "";
 const isDev = process.env.is_dev === "true";
 
 let stock_feed_detail: Record<string, any> = {};
-export const getDetailInfo = async (counter_ids: string[]) => {
+
+const PLATFORM = {
+  normal: "normal",
+  us: "us",
+};
+export const getDetailInfo = async (
+  counter_ids: string[],
+  platform: string
+) => {
   let info = {
     done: false,
   };
@@ -21,7 +30,7 @@ export const getDetailInfo = async (counter_ids: string[]) => {
   try {
     const browser = await puppeteer.launch();
     await Promise.all(
-      counter_ids.map((counter_id) => goDetail(browser, counter_id))
+      counter_ids.map((counter_id) => goDetail(browser, counter_id, platform))
     );
 
     await browser.close();
@@ -32,7 +41,7 @@ export const getDetailInfo = async (counter_ids: string[]) => {
   return info;
 };
 
-const goDetail = async (browser: any, counter_id: string) => {
+const goDetail = async (browser: any, counter_id: string, platform: string) => {
   const page = await browser.newPage();
 
   // Inject code to capture the global variable before it is deleted
@@ -48,14 +57,22 @@ const goDetail = async (browser: any, counter_id: string) => {
     });
   });
 
-  if (!feed_news_link) {
+  if (platform === PLATFORM.normal && !feed_news_link) {
+    return;
+  }
+  if (platform === PLATFORM.us && !feed_news_link_us) {
     return;
   }
 
   // Navigate the page to a URL.
-  await page.goto(feed_news_link.replace("{{counter_id}}", counter_id), {
-    waitUntil: "networkidle2",
-  });
+  await page.goto(
+    platform === PLATFORM.normal
+      ? feed_news_link.replace("{{counter_id}}", counter_id)
+      : feed_news_link_us.replace("{{counter_id}}", counter_id),
+    {
+      waitUntil: "networkidle2",
+    }
+  );
 
   try {
     // @ts-ignore
@@ -68,21 +85,23 @@ const goDetail = async (browser: any, counter_id: string) => {
 
     const stock_base = get(capturedValue, "stock_info", {});
 
-    const stock_info = {
-      symbol: counter_id,
-      update_at: new Date(),
-      turnover: get(stock_base, "turnover", ""),
-      turnover_num: convertToNumber(get(stock_base, "turnover", "")),
-      volume: get(stock_base, "volume", ""),
-      volume_num: convertToNumber(get(stock_base, "volume", "")),
-      total_shares: get(stock_base, "totalShares", ""),
-      total_shares_num: convertToNumber(get(stock_base, "totalShares", "")),
-    };
+    if (platform === PLATFORM.normal) {
+      const stock_info = {
+        symbol: counter_id,
+        update_at: new Date(),
+        turnover: get(stock_base, "turnover", ""),
+        turnover_num: convertToNumber(get(stock_base, "turnover", "")),
+        volume: get(stock_base, "volume", ""),
+        volume_num: convertToNumber(get(stock_base, "volume", "")),
+        total_shares: get(stock_base, "totalShares", ""),
+        total_shares_num: convertToNumber(get(stock_base, "totalShares", "")),
+      };
 
-    try {
-      await upsert(stock_info);
-    } catch (error) {
-      console.log("🚀 ~ goDetail ~ error:", error);
+      try {
+        await upsert(stock_info);
+      } catch (error) {
+        console.log("🚀 ~ goDetail ~ error:", error);
+      }
     }
 
     const stock_news = get(capturedValue, "stock_news.list", []);
@@ -103,6 +122,7 @@ const goDetail = async (browser: any, counter_id: string) => {
           time: new Date(item.time * 1000),
           url: item.url,
           source: item.source,
+          platform,
         };
         stock_feed_detail[`${counter_id}_${type}_${id}`] = info;
         feed_list.push(info);
@@ -253,7 +273,9 @@ if (counter_ids.length <= 0) {
   }
 }
 if (counter_ids.length > 0) {
-  await getDetailInfo(counter_ids);
+  for (const platform of Object.values(PLATFORM)) {
+    await getDetailInfo(counter_ids, platform);
+  }
   await feed();
   await stock_info();
 }
