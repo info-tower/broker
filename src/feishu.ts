@@ -42,6 +42,28 @@ async function clearSheet(sheetId: string) {
   console.log(`--> clear sheet: ${sheetId} done!`);
 }
 
+// 获取 sheet 数据
+async function getSheetData(range: string) {
+  let res = await client.request({
+    url: `${baseURL}/sheets/v2/spreadsheets/${spreadsheetToken}/values/${range}`,
+    method: "GET",
+  });
+
+  let result = res?.data?.valueRange?.values || [];
+  return result;
+}
+
+async function getSheetFistColumnsData(sheetId: string) {
+  let meta_res = await client.request({
+    url: `${baseURL}/sheets/v3/spreadsheets/${spreadsheetToken}/sheets/${sheetId}`,
+    method: "GET",
+  });
+  const { row_count } = meta_res?.data?.sheet?.grid_properties || {};
+
+  let range = `${sheetId}!A2:Z${row_count}`;
+  return await getSheetData(range);
+}
+
 // 插入行列
 // https://open.feishu.cn/document/server-docs/docs/sheets-v3/data-operation/prepend-data
 async function prependData(sheetId: string, data: any[]) {
@@ -195,3 +217,5 @@ export async function stock_info() {
 //   "bun run ./src/broker.ts feed 或 bun run ./src/broker.ts stock_info"
 // );
 // }
+
+// await getSheetFistColumnsData("NShpk9");
