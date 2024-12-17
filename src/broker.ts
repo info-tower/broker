@@ -2,7 +2,7 @@ import puppeteer from "puppeteer";
 import yargs from "yargs";
 import { hideBin } from "yargs/helpers";
 import axios from "axios";
-import { get, isEmpty } from "lodash-es";
+import { chunk, get, isEmpty, uniq, uniqBy } from "lodash-es";
 import { writeFile } from "./fs";
 import { upsert } from "./supabase";
 import { feed, stock_info, getSheetFistColumnsData } from "./feishu";
@@ -11,34 +11,57 @@ const feed_news_link = process.env.FEED_NEWS_LINK || "";
 const feed_news_link_us = process.env.FEED_NEWS_LINK_US || "";
 const feed_more_info_link = process.env.FEED_MORE_INFO_LINK || "";
 const feed_detail_info_link = process.env.FEED_DETAIL_INFO_LINK || "";
+const feed_more_info_link_us = process.env.FEED_MORE_INFO_LINK_US || "";
+const feed_detail_info_link_us = process.env.FEED_DETAIL_INFO_LINK_US || "";
 const isDev = process.env.is_dev === "true";
-
-let stock_feed_detail: Record<string, any> = {};
 
 const PLATFORM = {
   normal: "normal",
   us: "us",
 };
+
+let timeout_record: { counter_ids: string[]; platform: string }[] = [];
+
+let current_stocks: any = [];
+let feed_list: any = [];
 export const getDetailInfo = async (
   counter_ids: string[],
   platform: string
 ) => {
-  let info = {
-    done: false,
-  };
+  current_stocks = [];
+  feed_list = [];
+
   let start_time = Date.now();
   try {
     const browser = await puppeteer.launch();
-    await Promise.all(
-      counter_ids.map((counter_id) => goDetail(browser, counter_id, platform))
-    );
+    // 并发请求 将 counter_ids 分组
+    const group_counter_ids = chunk(counter_ids, 10);
+    for (const counter_ids of group_counter_ids) {
+      for (const counter_id of counter_ids) {
+        await goDetail(browser, counter_id, platform);
+      }
+      await new Promise((resolve) => setTimeout(resolve, 100));
+    }
 
     await browser.close();
   } catch (error) {
     console.log("🚀 ~ getDetail broker ~ error :", error);
+    timeout_record.push({ counter_ids, platform });
+  }
+
+  try {
+    current_stocks = uniqBy(current_stocks, "symbol");
+    console.log("🚀 ~ upsert ~ current_stocks:", current_stocks.length);
+    await upsert(current_stocks);
+
+    feed_list = uniqBy(feed_list, "id");
+    console.log("🚀 ~ upsert ~ feed_list:", feed_list.length);
+    await upsert(feed_list, "feed");
+  } catch (error) {
+    console.log("🚀 ~ upsert ~ error:", error);
   }
   console.log(`🚀 ~ getDetail ~ time:`, Date.now() - start_time);
-  return info;
+  return { current_stocks, feed_list };
 };
 
 const goDetail = async (browser: any, counter_id: string, platform: string) => {
@@ -97,22 +120,16 @@ const goDetail = async (browser: any, counter_id: string, platform: string) => {
         total_shares_num: convertToNumber(get(stock_base, "totalShares", "")),
       };
 
-      try {
-        await upsert(stock_info);
-      } catch (error) {
-        console.log("🚀 ~ goDetail ~ error:", error);
-      }
+      current_stocks.push(stock_info);
     }
 
     const stock_news = get(capturedValue, "stock_news.list", []);
 
-    stock_feed_detail = {};
-    let feed_list = [];
     // get stock_news feed_info
     for (const item of stock_news) {
       const { type, id } = extractTypeAndId(item.url);
       if (type && id) {
-        const feed_detail = await getFeedDetail(counter_id, id, type);
+        const feed_detail = await getFeedDetail(counter_id, id, type, platform);
         let info = {
           ...feed_detail,
           counter_id,
@@ -124,9 +141,8 @@ const goDetail = async (browser: any, counter_id: string, platform: string) => {
           source: item.source,
           platform,
         };
-        stock_feed_detail[`${counter_id}_${type}_${id}`] = info;
         feed_list.push(info);
-        await new Promise((resolve) => setTimeout(resolve, 300)); // 延迟 300ms
+        await new Promise((resolve) => setTimeout(resolve, 100));
       }
     }
 
@@ -137,23 +153,31 @@ const goDetail = async (browser: any, counter_id: string, platform: string) => {
           `src/backup/news_rank/${counter_id}_feed_list.json`
         );
       }
-      try {
-        for (const feed_item of feed_list) {
-          await upsert(feed_item, "feed");
-        }
-      } catch (error) {
-        console.log("🚀 ~ upsert feed error:", error);
-      }
     }
   } catch (error) {
     console.log("🚀 ~ goDetail ~ error:", error);
   }
 };
 
-async function getFeedDetail(counter_id: string, id: string, type: string) {
-  if (!feed_detail_info_link) {
+async function getFeedDetail(
+  counter_id: string,
+  id: string,
+  type: string,
+  platform: string
+) {
+  if (!feed_detail_info_link && platform === PLATFORM.normal) {
     return {};
   }
+  if (!feed_detail_info_link_us && platform === PLATFORM.us) {
+    return {};
+  }
+  const detail_info_link =
+    platform === PLATFORM.normal
+      ? feed_detail_info_link
+      : feed_detail_info_link_us;
+  const more_info_link =
+    platform === PLATFORM.normal ? feed_more_info_link : feed_more_info_link_us;
+
   const params = {
     id,
     type,
@@ -165,26 +189,60 @@ async function getFeedDetail(counter_id: string, id: string, type: string) {
   try {
     const more = await axios({
       method: "GET",
-      url: `${feed_more_info_link
+      url: `${more_info_link
         .replace("{{id}}", id)
         .replace("{{type}}", type)
         .replace("{{t}}", Date.now().toString())}`,
       params,
+      headers: {
+        "User-Agent":
+          "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36",
+        accept:
+          "image/avif,image/webp,image/apng,image/svg+xml,image/*,*/*;q=0.8",
+        "accept-language": "zh-CN,zh;q=0.9,en;q=0.8",
+        "cache-control": "no-cache",
+        pragma: "no-cache",
+        priority: "u=1, i",
+        "sec-ch-ua":
+          '"Google Chrome";v="131", "Chromium";v="131", "Not_A Brand";v="24"',
+        "sec-ch-ua-mobile": "?0",
+        "sec-ch-ua-platform": '"macOS"',
+        "sec-fetch-dest": "image",
+        "sec-fetch-mode": "no-cors",
+        "sec-fetch-site": "same-origin",
+        cookie: "locale=zh-hk;",
+        Referer: `${more_info_link
+          .replace("{{id}}", id)
+          .replace("{{type}}", type)
+          .replace("{{t}}", Date.now().toString())}`,
+        "Referrer-Policy": "strict-origin-when-cross-origin",
+      },
     });
+    await new Promise((resolve) => setTimeout(resolve, 200));
     const res = await axios({
       method: "GET",
-      url: feed_detail_info_link,
+      url: detail_info_link,
       params,
     });
     const more_data = get(more, "data.data", {});
     const data = get(res, "data.data", {});
+    if (!more_data.viewCountShow) {
+      console.log(
+        "🚀 ~ more_data:",
+        "-",
+        id,
+        "-",
+        type,
+        "-",
+        get(more_data, "hot.length", 0)
+      );
+    }
     const feed_detail = {
       view_count: more_data.viewCountShow || 0,
       share_count: data.shareCount || 0,
       like_count: data?.like?.likedNum || 0,
       comment_count: data.commentCount || 0,
     };
-    stock_feed_detail[`${counter_id}_${type}_${id}`] = feed_detail;
     return feed_detail;
   } catch (e: any) {
     console.log("🚀 ~ getFeedDetail ~ e:", e);
@@ -204,7 +262,7 @@ function extractTypeAndId(url: string) {
 
 function extractId(url: string) {
   // 正则表达式匹配模式
-  const pattern = /\/stock\/([A-Z]+-[A-Z]+)/;
+  const pattern = /\/stock\/([A-Z0-9]+-[A-Z]+)/;
   const match = url.match(pattern);
   if (match) {
     return match[1];
@@ -272,10 +330,21 @@ if (counter_ids.length <= 0) {
     console.log("🚀 ~ counter_ids ~ error:", error);
   }
 }
+
+counter_ids = uniq(counter_ids.filter(Boolean));
+
 if (counter_ids.length > 0) {
+  timeout_record = [];
   for (const platform of Object.values(PLATFORM)) {
     await getDetailInfo(counter_ids, platform);
+    await new Promise((resolve) => setTimeout(resolve, 1000));
   }
   await feed();
   await stock_info();
+
+  if (timeout_record.length > 0) {
+    for (const item of timeout_record) {
+      await getDetailInfo(item.counter_ids, item.platform);
+    }
+  }
 }

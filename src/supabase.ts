@@ -23,11 +23,15 @@ export async function loginUser() {
 export const upsert = async (params: any, table_key = "stock_info") => {
   await loginUser();
   const { data, error } = await supabase.from(table_key).upsert(params);
-  console.log("🚀 ~ upsert ~ data, error:", data, error);
+  if (error) {
+    console.log("🚀 ~ upsert ~ data, error:", data, error);
+  }
 };
 
 export const insert = async (params: any, table_key = "stock_info") => {
   await loginUser();
   const { data, error } = await supabase.from(table_key).insert(params);
-  console.log("🚀 ~ insert ~ data, error:", data, error);
+  if (error) {
+    console.log("🚀 ~ insert ~ data, error:", data, error);
+  }
 };
