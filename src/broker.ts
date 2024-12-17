@@ -5,7 +5,7 @@ import axios from "axios";
 import { get, isEmpty } from "lodash-es";
 import { writeFile } from "./fs";
 import { upsert } from "./supabase";
-import { feed, stock_info } from "./feishu";
+import { feed, stock_info, getSheetFistColumnsData } from "./feishu";
 
 const feed_news_link = process.env.FEED_NEWS_LINK || "";
 const feed_more_info_link = process.env.FEED_MORE_INFO_LINK || "";
@@ -182,6 +182,16 @@ function extractTypeAndId(url: string) {
   }
 }
 
+function extractId(url: string) {
+  // 正则表达式匹配模式
+  const pattern = /\/stock\/([A-Z]+-[A-Z]+)/;
+  const match = url.match(pattern);
+  if (match) {
+    return match[1];
+  }
+  return null;
+}
+
 // 将格式化后的大数字字符串转换为数字
 function convertToNumber(formattedStr: string) {
   const units = {
@@ -229,11 +239,19 @@ const argv = yargs(hideBin(process.argv))
   })
   .help().argv;
 // @ts-ignore
-const counter_ids = argv.counter_ids || [];
-// @ts-ignore
-const force = argv.force === "true";
+let counter_ids = argv.counter_ids || [];
 
-console.log("🚀 ~ counter_ids:", counter_ids);
+if (counter_ids.length <= 0) {
+  try {
+    const sheet = await getSheetFistColumnsData("NShpk9");
+    const stock_links = sheet.map((item: any) =>
+      get(item, "0.0.link", get(item, "0.0.text", ""))
+    );
+    counter_ids = stock_links.map((item: any) => extractId(item));
+  } catch (error) {
+    console.log("🚀 ~ counter_ids ~ error:", error);
+  }
+}
 if (counter_ids.length > 0) {
   await getDetailInfo(counter_ids);
   await feed();

@@ -53,7 +53,7 @@ async function getSheetData(range: string) {
   return result;
 }
 
-async function getSheetFistColumnsData(sheetId: string) {
+export async function getSheetFistColumnsData(sheetId: string) {
   let meta_res = await client.request({
     url: `${baseURL}/sheets/v3/spreadsheets/${spreadsheetToken}/sheets/${sheetId}`,
     method: "GET",
@@ -217,5 +217,3 @@ export async function stock_info() {
 //   "bun run ./src/broker.ts feed 或 bun run ./src/broker.ts stock_info"
 // );
 // }
-
-// await getSheetFistColumnsData("NShpk9");
