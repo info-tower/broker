@@ -3,7 +3,7 @@ on:
   workflow_dispatch:
   schedule:
     # At 08:00 on every day.
-    - cron: "0 8 * * *"
+    - cron: "35 1 * * *"
 
 jobs:
   export:
