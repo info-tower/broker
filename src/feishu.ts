@@ -1,5 +1,6 @@
 import type { Client } from "@larksuiteoapi/node-sdk";
 import { loginUser, supabase } from "./supabase";
+import { get } from "lodash-es";
 
 const lark = require("@larksuiteoapi/node-sdk");
 
@@ -13,7 +14,21 @@ const client: Client = new lark.Client({
 let spreadsheetToken = "FgTGsrqe7hh0Ivt7fTUc6SRAn7b";
 let baseURL = "https://open.feishu.cn/open-apis/";
 let feedSheetId = "af3f6c";
+const max_clear_count = 4500;
 
+function splitBySize(total: number, size: number) {
+  const result = [];
+  while (total > 0) {
+    if (total >= size) {
+      result.push(size);
+      total -= size;
+    } else {
+      result.push(total);
+      total = 0;
+    }
+  }
+  return result;
+}
 // 清除 sheet
 async function clearSheet(sheetId: string) {
   // https://open.feishu.cn/document/server-docs/docs/sheets-v3/spreadsheet-sheet/get
@@ -26,8 +41,24 @@ async function clearSheet(sheetId: string) {
 
   console.log(`--> will clear sheet: ${sheetId} count: ${row_count}`);
 
-  // clear sheet
-  await client.request({
+  // 根据 row_count 分组
+  const group_count = splitBySize(row_count, max_clear_count);
+
+  // 批量 clear sheet
+  for (const count of group_count) {
+    try {
+      await postClearSheet(sheetId, count);
+      await new Promise((resolve) => setTimeout(resolve, 200));
+    } catch (error) {
+      console.log("🚀 ~ clearSheet ~ error:", error);
+    }
+  }
+
+  console.log(`--> clear all sheet: ${sheetId} done!`);
+}
+
+async function postClearSheet(sheetId: string, row_count: number) {
+  const res = await client.request({
     url: `${baseURL}/sheets/v2/spreadsheets/${spreadsheetToken}/dimension_range`,
     method: "DELETE",
     data: {
@@ -39,7 +70,7 @@ async function clearSheet(sheetId: string) {
       },
     },
   });
-  console.log(`--> clear sheet: ${sheetId} done!`);
+  console.log(`--> clear sheet: ${sheetId} done! ${get(res, "code")}`);
 }
 
 // 获取 sheet 数据
@@ -198,6 +229,8 @@ export async function stock_info() {
   await clearSheet(stockSheetId);
   await update_feishu_table1();
 }
+
+await clearSheet(feedSheetId);
 
 // const args = process.argv.slice(2);
 // if (args.length > 0) {
