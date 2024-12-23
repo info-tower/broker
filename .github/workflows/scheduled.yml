@@ -1,8 +1,9 @@
 name: Scheduled Update Broker News
 on:
   workflow_dispatch:
-  # schedule:
+  schedule:
     # - cron: "0 */3 * * *"
+    - cron: "0 22 * * *"
 
 jobs:
   export:
