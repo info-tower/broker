@@ -8,7 +8,7 @@ on:
 jobs:
   export:
     name: Update Broker News
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-22.04
     steps:
       - uses: actions/checkout@v4
         with:
