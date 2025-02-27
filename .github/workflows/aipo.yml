@@ -21,4 +21,4 @@ jobs:
           LARK_APP_SECRET: ${{ secrets.LARK_APP_SECRET }}
         run: |
           bun install
-          bun run news
+          bun run aipo
