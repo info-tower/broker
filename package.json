@@ -9,7 +9,8 @@
   },
   "scripts": {
     "news:dev": "is_dev=true bun run src/broker.ts",
-    "news": "bun run src/broker.ts"
+    "news": "bun run src/broker.ts",
+    "aipo": "bun run src/aipo.ts"
   },
   "peerDependencies": {
     "typescript": "^5.0.0"

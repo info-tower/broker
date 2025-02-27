@@ -1,0 +1,24 @@
+name: Scheduled Update AiPO
+on:
+  workflow_dispatch:
+  schedule:
+    - cron: "0 8 * * *"
+
+jobs:
+  export:
+    name: Update AiPO
+    runs-on: ubuntu-22.04
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 1
+          branch: main
+
+      - uses: oven-sh/setup-bun@v1
+
+      - name: Update AiPO
+        env:
+          LARK_APP_SECRET: ${{ secrets.LARK_APP_SECRET }}
+        run: |
+          bun install
+          bun run news
